@@ -1,3 +1,4 @@
+
 import cv2, time, subprocess, picamera, socket, os, signal
 from multiprocessing import Process
 from bs4 import BeautifulSoup
@@ -10,16 +11,16 @@ def createData():
 
 def serverRequest(serverURL, data, upload):
     client = requests.session()
-    html = client.get(serverURL)
-    csrfToken = html.cookies["csrftoken"]
-    headers = {"X-CSRFToken" : csrfToken}
     serverURL = "http://192.168.0.68:8000/rasberrypy/" + serverURL
+    html = client.get(serverURL)
+    csrfToken = client.cookies["csrftoken"]
+    headers = {"X-CSRFToken" : csrfToken}
     res = client.post(serverURL, files = upload,data=data,headers = headers)
     client.close()
     return res
 
 def createBabyPicture():
-    camera = picamera.Camera()
+    camera = picamera.PiCamera()
     imgName = time.strftime('(%m-%d %H:%M:%S)', time.localtime(time.time())) + ".jpg"
     imagePath = "./img/" + imgName
     camera.capture(imagePath)
@@ -38,10 +39,11 @@ def createBabyTemperature():
     proc.stdout.close()
     data = createData()
     data["IsSick"] = temperature
-    serverRequest("/createBabyTemperature",data=data)
+    serverRequest("createBabyTemperature",data=data,upload=None)
 
 
 if __name__ == "__main__":
+    
     createBabyPicture()
     createBabyTemperature()
 
