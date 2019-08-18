@@ -2,18 +2,46 @@ import cv2, time, subprocess, picamera, socket, os, signal
 from multiprocessing import Process
 from bs4 import BeautifulSoup
 import requests
+import subprocess
+
+
+def createData():
+    return {"authentication": "ekscn0805"}
+
+def serverRequest(serverURL, data, upload):
+    client = requests.session()
+    html = client.get(serverURL)
+    csrfToken = html.cookies["csrftoken"]
+    headers = {"X-CSRFToken" : csrfToken}
+    serverURL = "http://192.168.0.68:8000/rasberrypy/" + serverURL
+    res = client.post(serverURL, files = upload,data=data,headers = headers)
+    client.close()
+    return res
+
+def createBabyPicture():
+    camera = picamera.Camera()
+    imgName = time.strftime('(%m-%d %H:%M:%S)', time.localtime(time.time())) + ".jpg"
+    imagePath = "./img/" + imgName
+    camera.capture(imagePath)
+    files = open(imagePath, "rb")
+    upload = {"image": files}
+    data = createData()
+    return serverRequest("imageUpload", data=data, upload=upload)
+
+def createBabyTemperature():
+    proc = subprocess.Popen(["./raspberrypi_video"], stdin=subprocess.PIPE,stdout=subprocess.PIPE)
+    out = proc.communicate()[0]
+    out  = float(out[:5])
+    temperature = False
+    if out > 37.5:
+        temperature = True
+    proc.stdout.close()
+    data = createData()
+    data["IsSick"] = temperature
+    serverRequest("/createBabyTemperature",data=data)
 
 
 if __name__ == "__main__":
-    camera = picamera.Camera()
-    imgName = time.strftime('(%m-%d %H:%M:%S)', time.localtime(time.time()))+".jpg"
-    imagePath = "./img/"+ imgName
-    camera.capture(imagePath)
-    html = requests.get("192.168.0.68/rasberrypy/imageUpload")
-    soup = BeautifulSoup(html,"html.parser")
-    csrfToken = soup.select("body > form > input[type=hidden]:nth-child(1)")
-    files = open(imagePath,"rb")
-    upload = {"image" : files}
-    data = {"authentication" : "ekscn0805"}
-    res = requests.post("192.168.0.68/rasberrypy/imageUpload",upload=files,data=data)
+    createBabyPicture()
+    createBabyTemperature()
 
